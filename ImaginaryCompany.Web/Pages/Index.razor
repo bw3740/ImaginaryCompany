@@ -1,0 +1,90 @@
+﻿@page "/"
+
+@using System.Text.RegularExpressions;
+@using ImaginaryCompany.Web.Data
+@using ImaginaryCompany.Web.Data.Models
+
+<h1>Software Search</h1>
+
+<p>Enter a version number. The results will be filtered to software above the version you've entered.</p>
+
+@if (softwares == null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div>
+        <div class="form-group">
+            <label for="">Version</label>
+            <input type="text" class="form-control" @bind-value="@searchParameters.SearchTerm" id="text" placeholder="ex. 2.0.0">
+        </div>
+        <button type="submit" class="btn btn-primary justify-content-center" @onclick="SearchChanged">Submit</button>
+        <input type="button" class="btn btn-secondary" @onclick="ClearSearch" value="Clear" />
+        <br /><br />
+    </div>
+    <div>
+        <span class="alert-danger">@validationMessage</span>
+    </div>
+    <div>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Version</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var software in softwares)
+                {
+                    <tr>
+                        <td>@software.Name</td>
+                        <td>@software.Version.ToFormattedString()</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    private SearchParameters searchParameters;
+    private Software[] softwares;
+    private string validationMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        searchParameters = new SearchParameters { SearchTerm = "", RecordStart = 1, PageSize = 1000 };
+
+        await SearchChanged();
+    }
+
+    private async Task SearchChanged()
+    {
+        //validate what was entered
+        if (!string.IsNullOrEmpty(searchParameters.SearchTerm))
+        {
+            var regx = new Regex(@"^(0|[1-9]\d*)(\.(0|[1-9]\d*)){0,2}$");
+            if(!regx.IsMatch(searchParameters.SearchTerm))
+            {
+                validationMessage = "Please enter a valid version number.";
+                return;
+            }
+            else
+            {
+                validationMessage = string.Empty;
+            }
+        }
+
+        var softwareService = new SoftwareService(new SoftwareManager());
+        var results = await softwareService.GetFilteredSoftware(searchParameters.SearchTerm, searchParameters.RecordStart, searchParameters.PageSize);
+        softwares = results.ToArray();
+    }
+
+    private async Task ClearSearch()
+    {
+        searchParameters.SearchTerm = string.Empty;
+        validationMessage = string.Empty;
+        await SearchChanged();
+    }
+}
